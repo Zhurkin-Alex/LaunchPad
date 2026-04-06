@@ -8,6 +8,7 @@ import { fmtPct, fmtRub, pctClass } from '@/utils/format'
 import SectorBadge from '@/components/ui/SectorBadge'
 import Spinner from '@/components/ui/Spinner'
 import PortfolioChart from '@/components/charts/PortfolioChart'
+import Tooltip from '@/components/ui/Tooltip'
 import type { PortfolioChartResponse } from '@/api/types'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -19,15 +20,25 @@ function PortfolioTable({ rows }: { rows: PortfolioEntry[] }) {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="table-head">
-              <th className="px-4 py-3 text-left">Доля</th>
+              <tr className="table-head">
+              <th className="px-4 py-3 text-left">
+                <Tooltip text="Рекомендуемая доля в портфеле, пропорциональна суммарному CAGR">Доля</Tooltip>
+              </th>
               <th className="px-4 py-3 text-left">Тикер</th>
               <th className="px-4 py-3 text-left">Компания</th>
               <th className="px-4 py-3 text-left">Сектор</th>
-              <th className="px-4 py-3 text-right">CAGR цены</th>
-              <th className="px-4 py-3 text-right">Дивид./год</th>
-              <th className="px-4 py-3 text-right">CAGR суммарный</th>
-              <th className="px-4 py-3 text-right">Лет данных</th>
+              <th className="px-4 py-3 text-right">
+                <Tooltip text="CAGR цены — среднегодовой темп роста стоимости акции (без дивидендов)" width={260}>CAGR цены</Tooltip>
+              </th>
+              <th className="px-4 py-3 text-right">
+                <Tooltip text="Среднегодовая дивидендная доходность за весь период анализа" width={260}>Дивид./год</Tooltip>
+              </th>
+              <th className="px-4 py-3 text-right">
+                <Tooltip text="CAGR суммарный — среднегодовая доходность с учётом роста цены и дивидендов вместе" width={280}>CAGR сумм.</Tooltip>
+              </th>
+              <th className="px-4 py-3 text-right">
+                <Tooltip text="Количество лет исторических данных MOEX, использованных в расчёте" width={240}>Лет данных</Tooltip>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -216,13 +227,15 @@ export default function TopStocksTab() {
               {chartData.summary && (
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                   {[
-                    { label: 'Вложено', value: fmtRub(chartData.summary.total_invested) },
-                    { label: 'Стоимость', value: fmtRub(chartData.summary.final_value) },
-                    { label: 'П/У без дивид.', value: fmtPct(chartData.summary.pnl_pct), cls: pctClass(chartData.summary.pnl_pct) },
-                    { label: 'П/У с дивид.', value: fmtPct(chartData.summary.pnl_pct_with_div), cls: pctClass(chartData.summary.pnl_pct_with_div) },
-                  ].map(({ label, value, cls }) => (
+                    { label: 'Вложено', value: fmtRub(chartData.summary.total_invested), hint: undefined },
+                    { label: 'Стоимость', value: fmtRub(chartData.summary.final_value), hint: 'Итоговая стоимость портфеля по последним ценам MOEX' },
+                    { label: 'П/У без дивид.', value: fmtPct(chartData.summary.pnl_pct), cls: pctClass(chartData.summary.pnl_pct), hint: 'Прибыль/Убыток в % только от роста цены акций' },
+                    { label: 'П/У с дивид.', value: fmtPct(chartData.summary.pnl_pct_with_div), cls: pctClass(chartData.summary.pnl_pct_with_div), hint: 'Прибыль/Убыток в % с учётом всех полученных дивидендов' },
+                  ].map(({ label, value, cls, hint }) => (
                     <div key={label} className="card p-4">
-                      <p className="text-xs text-gray-500">{label}</p>
+                      <p className="text-xs text-gray-500">
+                        {hint ? <Tooltip text={hint} width={260}>{label}</Tooltip> : label}
+                      </p>
                       <p className={`text-lg font-bold mt-1 ${cls ?? 'text-gray-900'}`}>{value}</p>
                     </div>
                   ))}

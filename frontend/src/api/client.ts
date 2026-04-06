@@ -53,7 +53,7 @@ export const api = {
     })
   },
 
-  getBacktestTickers(): Promise<{ tickers: string[] }> {
+  getBacktestTickers(): Promise<{ tickers: { ticker: string; name: string }[] }> {
     return request('/api/backtest/tickers')
   },
 

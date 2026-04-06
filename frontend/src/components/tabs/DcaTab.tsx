@@ -8,6 +8,7 @@ import { fmtRub, fmtPct, fmtNum, fmtDate, pctClass } from '@/utils/format'
 import TickerTagInput from '@/components/ui/TickerTagInput'
 import SectorBadge from '@/components/ui/SectorBadge'
 import Spinner from '@/components/ui/Spinner'
+import Tooltip from '@/components/ui/Tooltip'
 
 const CURRENT_YEAR = new Date().getFullYear()
 const YEARS = Array.from({ length: CURRENT_YEAR - 2009 }, (_, i) => CURRENT_YEAR - 1 - i)
@@ -186,7 +187,7 @@ export default function DcaTab() {
             tickers={dcaTickers}
             onAdd={addDcaTicker}
             onRemove={removeDcaTicker}
-            suggestions={suggestionsData?.tickers ?? []}
+            suggestions={suggestionsData?.tickers.map((t) => t.ticker) ?? []}
           />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -218,13 +219,15 @@ export default function DcaTab() {
       {combined && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[
-            { label: 'Вложено', value: fmtRub(combined.total_invested) },
-            { label: 'Стоимость', value: fmtRub(combined.total_value) },
-            { label: 'П/У без дивид.', value: fmtPct(combined.pnl_pct), cls: pctClass(combined.pnl_pct) },
-            { label: 'П/У с дивид.', value: fmtPct(combined.pnl_pct_with_div), cls: pctClass(combined.pnl_pct_with_div) },
-          ].map(({ label, value, cls }) => (
+            { label: 'Вложено', value: fmtRub(combined.total_invested), hint: undefined },
+            { label: 'Стоимость', value: fmtRub(combined.total_value), hint: 'Текущая рыночная стоимость всех купленных акций' },
+            { label: 'П/У без дивид.', value: fmtPct(combined.pnl_pct), cls: pctClass(combined.pnl_pct), hint: 'Прибыль/Убыток в % от вложенной суммы без учёта дивидендов' },
+            { label: 'П/У с дивид.', value: fmtPct(combined.pnl_pct_with_div), cls: pctClass(combined.pnl_pct_with_div), hint: 'Прибыль/Убыток в % с учётом всех полученных дивидендов' },
+          ].map(({ label, value, cls, hint }) => (
             <div key={label} className="card p-4">
-              <p className="text-xs text-gray-500">{label}</p>
+              <p className="text-xs text-gray-500">
+                {hint ? <Tooltip text={hint} width={260}>{label}</Tooltip> : label}
+              </p>
               <p className={`text-lg font-bold mt-1 ${cls ?? 'text-gray-900'}`}>{value}</p>
             </div>
           ))}
@@ -242,11 +245,11 @@ export default function DcaTab() {
                   <th className="px-4 py-3 text-left">Компания</th>
                   <th className="px-4 py-3 text-left">Сектор</th>
                   <th className="px-4 py-3 text-left">Вложено</th>
-                  <th className="px-4 py-3 text-left">Стоимость</th>
-                  <th className="px-4 py-3 text-left">П/У</th>
-                  <th className="px-4 py-3 text-left">П/У %</th>
-                  <th className="px-4 py-3 text-left">Дивиденды</th>
-                  <th className="px-4 py-3 text-left">П/У с дивид.</th>
+                  <th className="px-4 py-3 text-left"><Tooltip text="Текущая рыночная стоимость всех купленных акций">Стоимость</Tooltip></th>
+                  <th className="px-4 py-3 text-left"><Tooltip text="Прибыль или Убыток в рублях: стоимость минус вложенная сумма">П/У</Tooltip></th>
+                  <th className="px-4 py-3 text-left"><Tooltip text="Прибыль/Убыток в % от вложенной суммы без дивидендов">П/У %</Tooltip></th>
+                  <th className="px-4 py-3 text-left"><Tooltip text="Сумма всех выплаченных дивидендов за период" width={240}>Дивиденды</Tooltip></th>
+                  <th className="px-4 py-3 text-left"><Tooltip text="П/У % с учётом всех полученных дивидендов" width={240}>П/У с дивид.</Tooltip></th>
                 </tr>
               </thead>
               <tbody>

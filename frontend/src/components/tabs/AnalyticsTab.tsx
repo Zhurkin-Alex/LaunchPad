@@ -8,15 +8,16 @@ import { fmtRub, riskBadgeClass } from '@/utils/format'
 import DropZone from '@/components/ui/DropZone'
 import SectorBadge from '@/components/ui/SectorBadge'
 import Spinner from '@/components/ui/Spinner'
+import Tooltip from '@/components/ui/Tooltip'
 
-const RISK_COLS: { key: keyof TickerAnalysis; label: string }[] = [
-  { key: 'price', label: 'Цена (₽)' },
-  { key: 'geo_risk_label', label: 'Геориск' },
-  { key: 'debt_ebitda', label: 'Долг/EBITDA' },
-  { key: 'roe_vs_sector', label: 'ROE vs сектор' },
-  { key: 'dividend_years', label: 'Лет дивидендов' },
-  { key: 'free_float', label: 'Free-float' },
-  { key: 'news_sentiment', label: 'Новости' },
+const RISK_COLS: { key: keyof TickerAnalysis; label: string; hint?: string }[] = [
+  { key: 'price', label: 'Цена (₽)', hint: 'Текущая рыночная цена акции по данным MOEX' },
+  { key: 'geo_risk_label', label: 'Геориск', hint: 'Геополитический риск: насколько бизнес компании зависит от санкций и внешней политики' },
+  { key: 'debt_ebitda', label: 'Долг/EBITDA', hint: 'Долговая нагрузка: отношение чистого долга к прибыли до налогов и амортизации. Норма < 3.0' },
+  { key: 'roe_vs_sector', label: 'ROE vs сектор', hint: 'Return on Equity — рентабельность собственного капитала относительно среднего по отрасли' },
+  { key: 'dividend_years', label: 'Лет дивидендов', hint: 'Сколько лет подряд компания непрерывно выплачивала дивиденды' },
+  { key: 'free_float', label: 'Free-float', hint: 'Доля акций в свободном обращении на бирже (не у крупных акционеров). Чем выше — тем ликвиднее бумага' },
+  { key: 'news_sentiment', label: 'Новости', hint: 'Тональность последних новостей о компании: позитивная, нейтральная или негативная' },
 ]
 
 export default function AnalyticsTab() {
@@ -136,7 +137,9 @@ export default function AnalyticsTab() {
                     <th className="px-4 py-3 text-left">Компания</th>
                     <th className="px-4 py-3 text-left">Сектор</th>
                     {RISK_COLS.map((c) => (
-                      <th key={c.key} className="px-4 py-3 text-left whitespace-nowrap">{c.label}</th>
+                      <th key={c.key} className="px-4 py-3 text-left whitespace-nowrap">
+                        {c.hint ? <Tooltip text={c.hint}>{c.label}</Tooltip> : c.label}
+                      </th>
                     ))}
                   </tr>
                 </thead>
