@@ -4,18 +4,9 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import datetime
 
-# ── Для симулятора графика (фиксированные веса) ───────────────────────────────
-# Используется только эндпоинтом /api/portfolio-chart.
-# Список лучших акций теперь формируется динамически через build_dynamic_portfolio.
-
-TOP_TICKERS: list[str] = [
-    "SBER", "LKOH", "TATN", "PLZL", "GMKN",
-    "PHOR", "MOEX", "MGNT", "MTSS", "YDEX",
-]
-WEIGHTS: dict[str, float] = {
-    "SBER": 0.15, "LKOH": 0.15, "TATN": 0.10, "PLZL": 0.10, "GMKN": 0.10,
-    "PHOR": 0.10, "MOEX": 0.10, "MGNT": 0.10, "MTSS": 0.05, "YDEX": 0.05,
-}
+# TOP_TICKERS и WEIGHTS были удалены:
+# симулятор графика (/api/portfolio-chart) теперь принимает
+# динамические тикеры и веса из умного портфеля (/api/smart-portfolio).
 
 # ── Динамическая подборка: метрики и фильтрация ───────────────────────────────
 

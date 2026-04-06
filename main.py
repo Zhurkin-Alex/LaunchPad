@@ -7,11 +7,10 @@ import logging
 import time
 import uuid
 from datetime import date, datetime
-from pathlib import Path
 from typing import Optional
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from analyzer import analyze_portfolio, _get_companies
@@ -21,13 +20,20 @@ from data_fetcher import (
     fetch_prices, fetch_moex_all_stocks,
 )
 from parsers import extract_text_from_pdf, extract_text_from_image, extract_tickers
-from portfolio import TOP_TICKERS, WEIGHTS, build_chart_series, build_dynamic_portfolio, _compute_metrics
+from portfolio import build_chart_series, build_dynamic_portfolio
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Russian Stock Analyzer MVP")
-_INDEX_HTML = Path(__file__).parent / "templates" / "index.html"
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ── Хранение сессий: Redis → fallback на in-memory dict ──────────────────────
 
@@ -94,11 +100,6 @@ class BacktestRequest(BaseModel):
 
 
 # ── Эндпоинты ─────────────────────────────────────────────────────────────────
-
-
-@app.get("/", response_class=HTMLResponse)
-async def index() -> FileResponse:
-    return FileResponse(_INDEX_HTML)
 
 
 @app.post("/api/upload")
@@ -333,80 +334,48 @@ async def smart_portfolio(
     return result
 
 
-@app.get("/api/top-portfolio-returns")
-async def top_portfolio_returns() -> dict:
-    """
-    Реальная доходность цены за 5 и 10 лет для каждого тикера из TOP_PORTFOLIO.
-    Данные MOEX ISS, кешируются на 24 ч.
-    """
-    today    = date.today()
-    from_5y  = today.replace(year=today.year - 5).isoformat()
-    from_10y = today.replace(year=today.year - 10).isoformat()
-    till     = today.isoformat()
-
-    hist_5y_list, hist_10y_list = await asyncio.gather(
-        asyncio.gather(*[fetch_price_history(t, from_5y,  till) for t in TOP_TICKERS]),
-        asyncio.gather(*[fetch_price_history(t, from_10y, till) for t in TOP_TICKERS]),
-    )
-
-    def _return(history: list[dict]) -> float | None:
-        if not history or len(history) < 20:  # < ~1 месяца торгов — нет смысла
-            return None
-        start = history[0]["close"]
-        end   = history[-1]["close"]
-        if start <= 0:
-            return None
-        return round((end - start) / start * 100, 1)
-
-    returns: dict[str, dict] = {}
-    for i, ticker in enumerate(TOP_TICKERS):
-        returns[ticker] = {
-            "return_5y_pct":  _return(hist_5y_list[i]),
-            "return_10y_pct": _return(hist_10y_list[i]),
-        }
-
-    return {"returns": returns}
-
-
 class PortfolioChartRequest(BaseModel):
-    start_year:   int    # 2014 … текущий год
-    total_amount: float  # суммарный ежемесячный бюджет (₽)
-    frequency:    str    # "once" | "monthly"
+    tickers:    list[str]    # тикеры из умного портфеля
+    weights:    list[float]  # доли (0..1), сумма ≈ 1
+    start_year: int
+    amount:     float        # сумма одной закупки (₽) на весь портфель
+    frequency:  str          # "once" | "monthly" | "weekly"
 
 
 @app.post("/api/portfolio-chart")
 async def portfolio_chart(body: PortfolioChartRequest) -> dict:
     """
-    Строит временной ряд стоимости портфеля из 10 акций для Chart.js.
-    DCA применяется для каждой бумаги пропорционально весу.
+    Строит временной ряд стоимости портфеля для Chart.js.
+    Принимает динамические тикеры и веса из умного портфеля.
     """
     current_year = date.today().year
-    if not (2014 <= body.start_year <= current_year):
-        raise HTTPException(400, f"Год должен быть в диапазоне 2014–{current_year}")
-    if body.total_amount < 1_000:
-        raise HTTPException(400, "Минимальный бюджет — 1 000 ₽")
-    if body.frequency not in ("once", "monthly"):
-        raise HTTPException(400, "Допустимые значения frequency: once, monthly")
+    if not (2010 <= body.start_year <= current_year):
+        raise HTTPException(400, f"Год должен быть в диапазоне 2010–{current_year}")
+    if body.amount < 100:
+        raise HTTPException(400, "Минимальная сумма — 100 ₽")
+    if body.frequency not in ("once", "monthly", "weekly"):
+        raise HTTPException(400, "frequency: once | monthly | weekly")
+    if not body.tickers or len(body.tickers) != len(body.weights):
+        raise HTTPException(400, "Длины tickers и weights должны совпадать")
 
+    tickers   = body.tickers
     from_date = f"{body.start_year}-01-01"
     till_date = date.today().isoformat()
 
-    # Параллельная загрузка истории + дивидендов для всех 10 тикеров
     histories_list, dividends_list, prices_map = await asyncio.gather(
-        asyncio.gather(*[fetch_price_history(t, from_date, till_date) for t in TOP_TICKERS]),
-        asyncio.gather(*[fetch_dividends_data(t) for t in TOP_TICKERS]),
-        fetch_prices(TOP_TICKERS),
+        asyncio.gather(*[fetch_price_history(t, from_date, till_date) for t in tickers]),
+        asyncio.gather(*[fetch_dividends_data(t) for t in tickers]),
+        fetch_prices(tickers),
     )
-    histories = dict(zip(TOP_TICKERS, histories_list))
-    dividends = dict(zip(TOP_TICKERS, dividends_list))
+    histories = dict(zip(tickers, histories_list))
+    dividends = dict(zip(tickers, dividends_list))
 
-    # DCA для каждого тикера с учётом веса в портфеле
     ticker_results: dict[str, dict] = {}
-    for ticker in TOP_TICKERS:
-        hist  = histories.get(ticker) or []
-        divs  = dividends.get(ticker) or []
-        cp    = prices_map.get(ticker, {}).get("price")
-        amount = body.total_amount * WEIGHTS[ticker]
+    for ticker, weight in zip(tickers, body.weights):
+        hist   = histories.get(ticker) or []
+        divs   = dividends.get(ticker) or []
+        cp     = prices_map.get(ticker, {}).get("price")  # type: ignore[union-attr]
+        amount = body.amount * weight
 
         if not hist:
             ticker_results[ticker] = {"error": "Нет данных MOEX"}
