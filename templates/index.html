@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Аналитика российских акций</title>
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+  <link
+    href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --hero-from: #0f2027;
+      --hero-to: #203a43;
+    }
+
+    body {
+      background: #f4f6f9;
+      color: #212529;
+    }
+
+    /* ── Hero ─────────────────────────────────────── */
+    .hero {
+      background: linear-gradient(135deg, var(--hero-from), var(--hero-to));
+      padding: 36px 0 28px;
+      margin-bottom: 32px;
+    }
+    .hero h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.3px; }
+    .hero p  { opacity: .65; font-size: .9rem; }
+
+    /* ── Drop zone ────────────────────────────────── */
+    .drop-zone {
+      border: 2px dashed #ced4da;
+      border-radius: 14px;
+      padding: 44px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+    }
+    .drop-zone:hover,
+    .drop-zone.dragover {
+      border-color: #0d6efd;
+      background: #f0f5ff;
+    }
+    .drop-zone .upload-icon {
+      font-size: 2.8rem;
+      color: #adb5bd;
+      transition: color .2s;
+    }
+    .drop-zone.dragover .upload-icon { color: #0d6efd; }
+
+    /* ── Stat cards ───────────────────────────────── */
+    .stat-card {
+      border-left: 4px solid transparent;
+      border-radius: 10px;
+    }
+    .stat-card.danger  { border-left-color: #dc3545; }
+    .stat-card.warning { border-left-color: #ffc107; }
+    .stat-card.success { border-left-color: #198754; }
+    .stat-card.info    { border-left-color: #0dcaf0; }
+    .stat-card.secondary { border-left-color: #6c757d; }
+    .stat-value { font-size: 1.8rem; font-weight: 700; line-height: 1.15; }
+    .stat-label { font-size: .78rem; color: #6c757d; }
+
+    /* ── Table ────────────────────────────────────── */
+    .table thead th {
+      background: #1e2a38;
+      color: #e9ecef;
+      font-weight: 500;
+      font-size: .82rem;
+      letter-spacing: .3px;
+      white-space: nowrap;
+      padding: 10px 14px;
+    }
+    .table tbody td {
+      vertical-align: middle;
+      font-size: .88rem;
+      padding: 9px 14px;
+    }
+    tr.unknown-ticker td { color: #868e96; }
+    .ticker-badge {
+      font-family: 'SFMono-Regular', Consolas, monospace;
+      font-size: .82rem;
+      font-weight: 700;
+      letter-spacing: .5px;
+    }
+
+    /* ── Upload status ────────────────────────────── */
+    #uploadStatus { display: none; }
+
+    /* ── Toast ────────────────────────────────────── */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+    }
+
+    /* ── DCA tag input ───────────────────────────────────────────────────── */
+    .ticker-tags-wrap {
+      min-height: 38px; cursor: text;
+      display: flex; flex-wrap: wrap; gap: 4px; align-items: center;
+      padding: 4px 8px;
+      border: 1px solid #dee2e6; border-radius: 6px; background: #fff;
+      transition: border-color .15s;
+    }
+    .ticker-tags-wrap:focus-within {
+      border-color: #86b7fe; box-shadow: 0 0 0 .2rem rgba(13,110,253,.25);
+    }
+    .ticker-tag {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: #1e2a38; color: #fff; border-radius: 4px;
+      padding: 2px 8px 2px 10px;
+      font-size: .78rem; font-family: 'SFMono-Regular', Consolas, monospace;
+      font-weight: 700; letter-spacing: .4px; white-space: nowrap;
+    }
+    .ticker-tag-unknown { background: #6c757d; }
+    .ticker-tag .rm { cursor: pointer; opacity: .65; font-size: .9rem; line-height: 1; }
+    .ticker-tag .rm:hover { opacity: 1; }
+    #dcaTickerInput {
+      border: none; outline: none; flex: 1; min-width: 110px;
+      font-size: .85rem; background: transparent; padding: 2px 4px;
+    }
+    /* ── DCA results table ───────────────────────────────────────────────── */
+    .dca-ticker-row { cursor: pointer; user-select: none; }
+    .dca-ticker-row:hover td { background: rgba(13,110,253,.04); }
+    .dca-detail-row td { padding: 0 !important; }
+    .dca-detail-inner {
+      padding: 12px 16px; background: #f8f9fa;
+      border-top: 1px solid #dee2e6;
+    }
+
+    /* ── Main nav tabs ───────────────────────────── */
+    .main-nav-pills .nav-link {
+      font-size: .88rem; font-weight: 600; letter-spacing: .2px;
+      padding: 7px 18px; border-radius: 8px; color: #495057;
+    }
+    .main-nav-pills .nav-link:hover  { background: #e9ecef; color: #212529; }
+    .main-nav-pills .nav-link.active { background: #1e2a38; color: #fff; }
+    .main-nav-pills .nav-link .bi    { font-size: .9rem; }
+
+    /* ── Top portfolio table ─────────────────────── */
+    .top-sector-badge {
+      font-size: .72rem; padding: 3px 8px; border-radius: 12px; font-weight: 600;
+    }
+    .top-return { font-weight: 700; font-size: .9rem; }
+    #topChart { max-height: 420px; }
+
+    /* ── Print ────────────────────────────────────── */
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff; }
+      .hero {
+        background: #1e2a38 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .card { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ Hero ══════════════════════════════════════════════════════════════════ -->
+<div class="hero no-print">
+  <div class="container">
+    <h1 class="text-white mb-1">
+      <i class="bi bi-bar-chart-fill me-2"></i>Аналитика российских акций
+    </h1>
+    <p class="mb-0 text-white">
+      Загрузите документ или введите тикеры — получите информационную аналитику по бумагам
+    </p>
+  </div>
+</div>
+
+<div class="container pb-5">
+
+  <!-- ══ Навигация по разделам ══════════════════════════════════════════════ -->
+  <ul class="nav main-nav-pills gap-1 mb-4 no-print" id="mainNavTabs" role="tablist">
+    <li class="nav-item">
+      <button class="nav-link active" id="tab-analytics" data-bs-toggle="pill"
+              data-bs-target="#sec-analytics" type="button" role="tab">
+        <i class="bi bi-search me-1"></i>Анализ портфеля
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" id="tab-dca" data-bs-toggle="pill"
+              data-bs-target="#sec-dca" type="button" role="tab">
+        <i class="bi bi-calculator me-1"></i>DCA Калькулятор
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" id="tab-top" data-bs-toggle="pill"
+              data-bs-target="#sec-top" type="button" role="tab"
+              onclick="onTopTabClick()">
+        <i class="bi bi-trophy me-1"></i>Лучшие акции
+      </button>
+    </li>
+  </ul>
+
+  <div class="tab-content" id="mainTabContent">
+
+  <!-- ════ Вкладка: Анализ портфеля ═══════════════════════════════════════ -->
+  <div class="tab-pane fade show active" id="sec-analytics" role="tabpanel">
+
+  <!-- ══ Блок загрузки файла ════════════════════════════════════════════════ -->
+  <div class="card shadow-sm mb-4 no-print">
+    <div class="card-body p-4">
+      <h5 class="card-title mb-3">
+        <i class="bi bi-file-earmark-arrow-up me-2 text-primary"></i>Загрузить файл
+      </h5>
+
+      <div id="dropZone" class="drop-zone" role="button" tabindex="0"
+           aria-label="Область для перетаскивания файла">
+        <div class="upload-icon mb-2"><i class="bi bi-cloud-upload"></i></div>
+        <p class="fw-semibold mb-1">Перетащите файл сюда</p>
+        <p class="text-muted small mb-3">PDF, PNG, JPG — до 50 МБ</p>
+        <label class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-folder2-open me-1"></i>Выбрать файл
+          <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png" hidden />
+        </label>
+      </div>
+
+      <!-- Прогресс загрузки -->
+      <div id="uploadStatus" class="mt-3 d-flex align-items-center gap-2">
+        <div id="uploadSpinner" class="spinner-border spinner-border-sm text-primary"></div>
+        <span id="uploadStatusText" class="small"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Ввод тикеров + кнопка анализа ════════════════════════════════════ -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body p-4">
+      <h5 class="card-title mb-1">
+        <i class="bi bi-list-check me-2 text-primary"></i>Тикеры для анализа
+      </h5>
+      <p class="text-muted small mb-3">
+        Введите вручную через запятую или загрузите файл — тикеры появятся автоматически.
+        Пример: <code>SBER, GAZP, LKOH, PLZL</code>
+      </p>
+      <textarea
+        id="tickersInput"
+        class="form-control font-monospace"
+        rows="3"
+        placeholder="SBER, GAZP, LKOH, GMKN, YDEX..."
+      ></textarea>
+
+      <div class="mt-3 d-flex gap-2 flex-wrap align-items-center no-print">
+        <button id="analyzeBtn" class="btn btn-primary px-4">
+          <i class="bi bi-search me-1"></i>
+          <span id="analyzeBtnText">Анализировать</span>
+          <span id="analyzeBtnSpinner"
+                class="spinner-border spinner-border-sm ms-2 d-none"
+                role="status"></span>
+        </button>
+        <button id="clearBtn" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-x-circle me-1"></i>Очистить
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ Блок результатов (скрыт до анализа) ═══════════════════════════════ -->
+  <div id="resultsSection" class="d-none">
+
+    <!-- Итоговая карточка портфеля -->
+    <h5 class="mb-3">
+      <i class="bi bi-clipboard-data me-2 text-primary"></i>Итоговая карточка портфеля
+    </h5>
+
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="card stat-card info h-100 shadow-sm">
+          <div class="card-body text-center py-3">
+            <div class="stat-value" id="statTotal">—</div>
+            <div class="stat-label">Бумаг всего</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div id="statRiskCard" class="card stat-card secondary h-100 shadow-sm">
+          <div class="card-body text-center py-3">
+            <div class="stat-value" id="statRisk">—</div>
+            <div class="stat-label">Средний риск</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card stat-card warning h-100 shadow-sm">
+          <div class="card-body text-center py-3">
+            <div class="stat-value" id="statHighDebt">—</div>
+            <div class="stat-label">Высокий долг (&gt;3×)</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="card stat-card danger h-100 shadow-sm">
+          <div class="card-body text-center py-3">
+            <div class="stat-value ticker-badge" id="statRiskiest">—</div>
+            <div class="stat-label">Самый рискованный</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Кнопки действий + метка источника -->
+    <div class="d-flex gap-2 mb-4 flex-wrap align-items-center no-print">
+      <button id="copyLinkBtn" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-link-45deg me-1"></i>Скопировать ссылку
+      </button>
+      <button onclick="window.print()" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-printer me-1"></i>Скачать отчёт (PDF)
+      </button>
+      <span id="liveDataBadge" class="d-none ms-auto badge bg-success-subtle text-success-emphasis border border-success-subtle fw-normal">
+        <i class="bi bi-broadcast me-1"></i><span id="liveUpdatedAt"></span>
+      </span>
+      <span id="liveDataError" class="d-none ms-auto badge bg-warning-subtle text-warning-emphasis border border-warning-subtle fw-normal">
+        <i class="bi bi-exclamation-triangle me-1"></i>MOEX недоступен — цены не загружены
+      </span>
+    </div>
+
+    <!-- Таблица результатов -->
+    <div class="card shadow-sm">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th class="ps-3">Тикер</th>
+                <th>Компания</th>
+                <th class="text-end">Цена (₽)
+                  <i class="bi bi-info-circle text-secondary" style="font-size:.7rem"
+                     title="Данные MOEX ISS: текущая цена или предыдущее закрытие"></i>
+                </th>
+                <th>Геополитический риск</th>
+                <th style="min-width:200px">Ключевой фактор риска</th>
+                <th class="text-end">Долг/EBITDA</th>
+                <th class="text-end" style="min-width:120px">ROE (сектор)</th>
+                <th class="text-center">Дивиденды, лет
+                  <i class="bi bi-info-circle text-secondary" style="font-size:.7rem"
+                     title="Реальное значение из истории дивидендов MOEX"></i>
+                </th>
+                <th class="text-end">Free-float</th>
+                <th class="text-center">Новостной фон</th>
+              </tr>
+            </thead>
+            <tbody id="resultsTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /resultsSection -->
+
+  </div><!-- /tab-pane sec-analytics -->
+
+  <!-- ════ Вкладка: DCA Калькулятор ═══════════════════════════════════════ -->
+  <div class="tab-pane fade" id="sec-dca" role="tabpanel">
+
+  <!-- ══ DCA-калькулятор ═══════════════════════════════════════════════════ -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-header d-flex align-items-center gap-2 py-2">
+      <i class="bi bi-calculator-fill text-success"></i>
+      <span class="fw-semibold">DCA-калькулятор</span>
+      <small class="text-muted ms-1">— «что если бы я покупал регулярно?»</small>
+      <button class="btn btn-link btn-sm ms-auto p-0 text-muted no-print"
+              type="button" data-bs-toggle="collapse" data-bs-target="#dcaBody"
+              aria-expanded="true">
+        <i class="bi bi-chevron-up" id="dcaChevron"></i>
+      </button>
+    </div>
+
+    <div class="collapse show" id="dcaBody">
+      <div class="card-body p-4">
+
+        <!-- Форма -->
+        <div class="row g-3 align-items-end">
+          <div class="col-12 col-md-5">
+            <label class="form-label small fw-semibold mb-1">
+              Акции
+              <span class="text-muted fw-normal">— выберите из списка или введите любой тикер MOEX</span>
+            </label>
+            <div class="ticker-tags-wrap" id="dcaTagsWrap"
+                 onclick="document.getElementById('dcaTickerInput').focus()">
+              <!-- теги появляются здесь -->
+              <input type="text" id="dcaTickerInput" list="dcaTickerList"
+                     placeholder="Тикер + Enter…" autocomplete="off" />
+            </div>
+            <datalist id="dcaTickerList">
+              <option value="SBER">Сбербанк</option>
+              <option value="GAZP">Газпром</option>
+              <option value="LKOH">Лукойл</option>
+              <option value="GMKN">Норникель</option>
+              <option value="YDEX">Яндекс</option>
+              <option value="MGNT">Магнит</option>
+              <option value="MTSS">МТС</option>
+              <option value="ROSN">Роснефть</option>
+              <option value="TATN">Татнефть</option>
+              <option value="VTBR">ВТБ</option>
+              <option value="NVTK">Новатэк</option>
+              <option value="SNGS">Сургутнефтегаз</option>
+              <option value="PHOR">ФосАгро</option>
+              <option value="PLZL">Полюс</option>
+              <option value="CHMF">Северсталь</option>
+              <option value="AFLT">Аэрофлот</option>
+              <option value="X5">X5 Group</option>
+              <option value="OZON">Озон</option>
+              <option value="TCSG">Т-Банк</option>
+              <option value="MOEX">Мосбиржа</option>
+            </datalist>
+          </div>
+
+          <div class="col-6 col-md-2">
+            <label class="form-label small fw-semibold mb-1">Год начала</label>
+            <select id="dcaYear" class="form-select form-select-sm">
+              <!-- Заполняется JS -->
+            </select>
+          </div>
+
+          <div class="col-6 col-md-2">
+            <label class="form-label small fw-semibold mb-1">Сумма за раз (₽)</label>
+            <input id="dcaAmount" type="number" class="form-control form-control-sm"
+                   value="10000" min="100" step="1000" />
+          </div>
+
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold mb-1">Частота покупок</label>
+            <select id="dcaFrequency" class="form-select form-select-sm">
+              <option value="once">Один раз (в начале периода)</option>
+              <option value="monthly" selected>Раз в месяц</option>
+              <option value="weekly">Раз в неделю</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-2 no-print">
+            <button id="dcaBtn" class="btn btn-success btn-sm w-100">
+              <i class="bi bi-play-fill me-1"></i>
+              <span id="dcaBtnText">Рассчитать</span>
+              <span id="dcaBtnSpinner" class="spinner-border spinner-border-sm ms-1 d-none"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Результаты DCA -->
+        <div id="dcaResults" class="d-none mt-4">
+
+          <!-- Заголовок -->
+          <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+            <h6 class="mb-0" id="dcaTitle">—</h6>
+            <span class="badge bg-secondary" id="dcaPeriodBadge">—</span>
+          </div>
+
+          <!-- Сводные карточки (по всем тикерам) -->
+          <div class="row g-2 mb-3">
+            <div class="col-6 col-lg-3">
+              <div class="card border-0 bg-light h-100">
+                <div class="card-body p-3 text-center">
+                  <div class="fs-5 fw-bold text-primary" id="dcaSumInvested">—</div>
+                  <div class="text-muted" style="font-size:.75rem">Вложено</div>
+                  <div class="text-muted" style="font-size:.72rem" id="dcaSumShares"></div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="card border-0 bg-light h-100">
+                <div class="card-body p-3 text-center">
+                  <div class="fs-5 fw-bold" id="dcaSumValue">—</div>
+                  <div class="text-muted" style="font-size:.75rem">Текущая стоимость</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="card border-0 bg-light h-100">
+                <div class="card-body p-3 text-center">
+                  <div class="fs-5 fw-bold" id="dcaSumPnl">—</div>
+                  <div class="text-muted" style="font-size:.75rem">Без дивидендов</div>
+                </div>
+              </div>
+            </div>
+            <div class="col-6 col-lg-3">
+              <div class="card border-success border-opacity-50 h-100"
+                   style="background:rgba(25,135,84,.06)">
+                <div class="card-body p-3 text-center">
+                  <div class="fs-5 fw-bold" id="dcaSumPnlDiv">—</div>
+                  <div class="fw-semibold text-success" style="font-size:.75rem">С дивидендами</div>
+                  <div style="font-size:.72rem;color:#6c757d" id="dcaDivTotal"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Таблица по тикерам -->
+          <div class="table-responsive border rounded">
+            <table class="table table-sm table-hover mb-0" style="font-size:.83rem">
+              <thead class="table-dark">
+                <tr>
+                  <th class="ps-3">Тикер</th>
+                  <th>Компания</th>
+                  <th class="text-end">Вложено (₽)</th>
+                  <th class="text-end">Тек. стоим. (₽)</th>
+                  <th class="text-end">P&amp;L</th>
+                  <th class="text-end">P&amp;L с дивид.</th>
+                  <th class="text-end">Дивиденды (₽)</th>
+                  <th class="text-center" style="width:36px"></th>
+                </tr>
+              </thead>
+              <tbody id="dcaTickerTableBody"></tbody>
+            </table>
+          </div>
+
+          <p class="text-muted mt-2 mb-0" style="font-size:.73rem">
+            * Цена закрытия торгового дня MOEX. Покупаются целые акции; остаток не учитывается.
+            Дивиденды — по дате закрытия реестра, без учёта налога 13%.
+            Нажмите на строку тикера, чтобы раскрыть историю покупок и дивидендов.
+          </p>
+        </div><!-- /dcaResults -->
+
+      </div><!-- /card-body -->
+    </div><!-- /collapse -->
+  </div><!-- /DCA card -->
+
+  </div><!-- /tab-pane sec-dca -->
+
+  <!-- ════ Вкладка: Лучшие акции ═══════════════════════════════════════════ -->
+  <div class="tab-pane fade" id="sec-top" role="tabpanel">
+
+    <!-- ── Фильтр подборки ───────────────────────────────────────────────── -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-body p-3">
+        <div class="row g-2 align-items-end">
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold mb-1">Период анализа</label>
+            <select id="spYears" class="form-select form-select-sm">
+              <option value="3">3 года</option>
+              <option value="5" selected>5 лет</option>
+              <option value="10">10 лет</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label small fw-semibold mb-1">
+              Мин. суммарный CAGR (% в год)
+              <i class="bi bi-info-circle text-muted" style="font-size:.75rem"
+                 title="CAGR — среднегодовой темп роста. Включает прирост цены + дивиденды."></i>
+            </label>
+            <div class="input-group input-group-sm">
+              <input id="spMinCagr" type="number" class="form-control" value="8" min="0" max="50" step="1" />
+              <span class="input-group-text">%/год</span>
+            </div>
+          </div>
+          <div class="col-12 col-md-3">
+            <button id="spRefreshBtn" class="btn btn-primary btn-sm w-100">
+              <i class="bi bi-arrow-repeat me-1"></i>
+              <span id="spRefreshText">Обновить подборку</span>
+              <span id="spRefreshSpinner" class="spinner-border spinner-border-sm ms-1 d-none"></span>
+            </button>
+          </div>
+          <div class="col-12 col-md-2 text-muted" style="font-size:.75rem" id="spMeta"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Таблица лучших акций (динамическая) ───────────────────────────── -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-header py-2 d-flex align-items-center gap-2">
+        <i class="bi bi-trophy-fill text-warning"></i>
+        <span class="fw-semibold" id="spTableTitle">Лучший сбалансированный портфель</span>
+        <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle ms-auto fw-normal"
+              id="spLiveBadge" style="display:none!important">
+          <i class="bi bi-broadcast me-1"></i>Данные MOEX
+        </span>
+      </div>
+      <div class="card-body p-0">
+
+        <!-- Загрузка -->
+        <div id="spLoading" class="text-center py-5 text-muted">
+          <div class="spinner-border text-primary mb-3" style="width:2.5rem;height:2.5rem"></div>
+          <div class="fw-semibold mb-1">Загружаем данные с MOEX…</div>
+          <div class="small">Анализируем все акции биржи (уровень листинга 1–2).<br>
+            Первый запрос занимает 20–60 секунд. Результаты кешируются на 24 часа.</div>
+        </div>
+
+        <!-- Таблица результата -->
+        <div id="spTableWrap" class="table-responsive d-none">
+          <table class="table table-hover mb-0" style="font-size:.84rem">
+            <thead>
+              <tr>
+                <th class="ps-3" style="width:55px">Доля</th>
+                <th style="width:75px">Тикер</th>
+                <th>Сектор</th>
+                <th style="min-width:130px">Компания</th>
+                <th class="text-end" style="width:100px">
+                  CAGR цены
+                  <i class="bi bi-info-circle text-muted" style="font-size:.65rem"
+                     title="Среднегодовой рост цены акции за период"></i>
+                </th>
+                <th class="text-end" style="width:100px">
+                  Дивиденды/год
+                  <i class="bi bi-info-circle text-muted" style="font-size:.65rem"
+                     title="Средняя годовая дивидендная доходность от стартовой цены"></i>
+                </th>
+                <th class="text-end" style="width:115px">
+                  <span class="text-success fw-semibold">CAGR суммарный</span>
+                  <i class="bi bi-info-circle text-muted" style="font-size:.65rem"
+                     title="Среднегодовой рост с учётом дивидендов. Основной критерий отбора."></i>
+                </th>
+                <th class="text-end" style="width:90px">Лет данных</th>
+              </tr>
+            </thead>
+            <tbody id="topTableBody"></tbody>
+          </table>
+        </div>
+
+        <!-- Не прошли фильтр -->
+        <div id="spRejectedWrap" class="d-none border-top">
+          <button class="btn btn-link btn-sm text-muted px-3 py-2 w-100 text-start"
+                  type="button" data-bs-toggle="collapse" data-bs-target="#spRejected">
+            <i class="bi bi-chevron-down me-1"></i>
+            <span id="spRejectedLabel">Не прошли фильтр</span>
+          </button>
+          <div class="collapse" id="spRejected">
+            <div class="table-responsive">
+              <table class="table table-sm mb-0 text-muted" style="font-size:.8rem">
+                <thead class="table-light">
+                  <tr>
+                    <th class="ps-3">Тикер</th>
+                    <th>Компания</th>
+                    <th>Сектор</th>
+                    <th class="text-end">CAGR суммарный</th>
+                    <th>Причина исключения</th>
+                  </tr>
+                </thead>
+                <tbody id="spRejectedBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Симулятор роста портфеля ──────────────────────────────────────── -->
+    <div class="card shadow-sm mb-4">
+      <div class="card-body p-4">
+        <h5 class="card-title mb-1">
+          <i class="bi bi-graph-up-arrow me-2 text-success"></i>Симулятор роста портфеля
+        </h5>
+        <p class="text-muted small mb-3">
+          Рассчитайте, сколько бы вы заработали, регулярно инвестируя в эти 10 акций.
+          Бюджет распределяется по весам портфеля. Цены и дивиденды — реальные данные MOEX.
+        </p>
+
+        <div class="row g-3 align-items-end">
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold mb-1">Год начала</label>
+            <select id="topYear" class="form-select form-select-sm"></select>
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold mb-1">Ежемесячный бюджет (₽)</label>
+            <input id="topAmount" type="number" class="form-control form-control-sm"
+                   value="30000" min="1000" step="1000" />
+          </div>
+          <div class="col-12 col-md-3">
+            <label class="form-label small fw-semibold mb-1">Частота</label>
+            <select id="topFrequency" class="form-select form-select-sm">
+              <option value="once">Один раз в начале</option>
+              <option value="monthly" selected>Раз в месяц</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-3">
+            <button id="topCalcBtn" class="btn btn-success btn-sm w-100">
+              <i class="bi bi-play-fill me-1"></i>
+              <span id="topCalcText">Рассчитать</span>
+              <span id="topCalcSpinner" class="spinner-border spinner-border-sm ms-1 d-none"></span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Результаты симулятора ─────────────────────────────────────────── -->
+    <div id="topChartSection" class="d-none">
+
+      <!-- Сводные карточки -->
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+          <div class="card border-0 bg-light h-100">
+            <div class="card-body p-3 text-center">
+              <div class="fs-5 fw-bold text-primary" id="topInvested">—</div>
+              <div class="text-muted" style="font-size:.75rem">Вложено</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="card border-0 bg-light h-100">
+            <div class="card-body p-3 text-center">
+              <div class="fs-5 fw-bold" id="topValue">—</div>
+              <div class="text-muted" style="font-size:.75rem">Стоимость без дивидендов</div>
+              <div style="font-size:.72rem" id="topPnl"></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="card border-success border-opacity-50 h-100" style="background:rgba(25,135,84,.06)">
+            <div class="card-body p-3 text-center">
+              <div class="fs-5 fw-bold text-success" id="topValueDiv">—</div>
+              <div class="fw-semibold text-success" style="font-size:.75rem">С дивидендами</div>
+              <div style="font-size:.72rem;color:#6c757d" id="topPnlDiv"></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="card border-0 bg-light h-100">
+            <div class="card-body p-3 text-center">
+              <div class="fs-5 fw-bold text-success" id="topDivTotal">—</div>
+              <div class="text-muted" style="font-size:.75rem">Дивидендов получено</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- График -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <canvas id="topChart"></canvas>
+        </div>
+      </div>
+
+    </div><!-- /topChartSection -->
+
+  </div><!-- /tab-pane sec-top -->
+
+  </div><!-- /tab-content -->
+
+  <!-- ══ Дисклеймер ════════════════════════════════════════════════════════ -->
+  <div class="alert alert-secondary d-flex gap-2 mt-4" role="alert">
+    <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+    <small>
+      <strong>Дисклеймер:</strong> Информация носит ознакомительный характер и
+      <strong>не является инвестиционной рекомендацией</strong>.
+      Все данные являются оценочными и могут не соответствовать актуальным значениям.
+      Решения об операциях с ценными бумагами принимаются инвестором самостоятельно.
+      Приложение не несёт ответственности за возможные финансовые потери.
+    </small>
+  </div>
+
+</div><!-- /container -->
+
+<!-- ══ Toast ══════════════════════════════════════════════════════════════════ -->
+<div class="toast-container">
+  <div id="toast" class="toast align-items-center border-0" role="alert"
+       aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="toastBody"></div>
+      <button type="button" class="btn-close me-2 m-auto"
+              data-bs-dismiss="toast" aria-label="Закрыть"></button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+"use strict";
+
+/* ── Элементы ─────────────────────────────────────────────────────────────── */
+const dropZone        = document.getElementById("dropZone");
+const fileInput       = document.getElementById("fileInput");
+const tickersInput    = document.getElementById("tickersInput");
+const analyzeBtn      = document.getElementById("analyzeBtn");
+const clearBtn        = document.getElementById("clearBtn");
+const resultsSection  = document.getElementById("resultsSection");
+const uploadStatus    = document.getElementById("uploadStatus");
+const uploadSpinner   = document.getElementById("uploadSpinner");
+const uploadStatusTxt = document.getElementById("uploadStatusText");
+const copyLinkBtn     = document.getElementById("copyLinkBtn");
+const toastEl         = document.getElementById("toast");
+const toastBody       = document.getElementById("toastBody");
+const bsToast         = new bootstrap.Toast(toastEl, { delay: 3500 });
+
+let currentSessionId = null;
+
+/* ── Toast helper ─────────────────────────────────────────────────────────── */
+function showToast(msg, type = "success") {
+  toastBody.textContent = msg;
+  toastEl.className = `toast align-items-center border-0 text-bg-${type}`;
+  bsToast.show();
+}
+
+/* ── Загрузка сессии по URL-параметру ────────────────────────────────────── */
+document.addEventListener("DOMContentLoaded", () => {
+  const params = new URLSearchParams(window.location.search);
+  const sid = params.get("session");
+  if (sid) loadSession(sid);
+});
+
+async function loadSession(sid) {
+  try {
+    const res = await fetch(`/api/session/${encodeURIComponent(sid)}`);
+    if (!res.ok) throw new Error("Сессия не найдена");
+    const data = await res.json();
+    currentSessionId = sid;
+    // Переключаемся на вкладку "Анализ"
+    bootstrap.Tab.getOrCreateInstance(document.getElementById("tab-analytics")).show();
+    renderResults(data);
+  } catch {
+    showToast("Ссылка устарела или недействительна", "warning");
+    history.replaceState({}, "", "/");
+  }
+}
+
+/* ── Drag & Drop ──────────────────────────────────────────────────────────── */
+dropZone.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  dropZone.classList.add("dragover");
+});
+dropZone.addEventListener("dragleave", () => dropZone.classList.remove("dragover"));
+dropZone.addEventListener("drop", (e) => {
+  e.preventDefault();
+  dropZone.classList.remove("dragover");
+  const file = e.dataTransfer.files[0];
+  if (file) handleFile(file);
+});
+dropZone.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") fileInput.click();
+});
+dropZone.addEventListener("click", (e) => {
+  if (!e.target.closest("label")) fileInput.click();
+});
+fileInput.addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (file) handleFile(file);
+});
+
+/* ── Загрузка файла ───────────────────────────────────────────────────────── */
+async function handleFile(file) {
+  uploadStatus.style.display = "flex";
+  uploadSpinner.style.display = "";
+  uploadStatusTxt.textContent = "Обработка файла…";
+  analyzeBtn.disabled = true;
+
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/upload", { method: "POST", body: fd });
+    const data = await res.json();
+
+    if (!res.ok) throw new Error(data.detail || "Ошибка загрузки");
+
+    if (data.tickers && data.tickers.length > 0) {
+      tickersInput.value = data.tickers.join(", ");
+      uploadStatusTxt.textContent = `✓ Найдено тикеров: ${data.tickers.length}`;
+      uploadSpinner.style.display = "none";
+      showToast(`Файл обработан. Найдено тикеров: ${data.tickers.length}`);
+    } else {
+      uploadStatusTxt.textContent = "Тикеры не обнаружены. Введите вручную.";
+      uploadSpinner.style.display = "none";
+      showToast("В файле не найдено известных тикеров", "warning");
+    }
+  } catch (err) {
+    uploadStatusTxt.textContent = `Ошибка: ${err.message}`;
+    uploadSpinner.style.display = "none";
+    showToast(`Ошибка: ${err.message}`, "danger");
+  } finally {
+    analyzeBtn.disabled = false;
+    fileInput.value = "";
+  }
+}
+
+/* ── Анализ ───────────────────────────────────────────────────────────────── */
+analyzeBtn.addEventListener("click", runAnalyze);
+tickersInput.addEventListener("keydown", (e) => {
+  if (e.ctrlKey && e.key === "Enter") runAnalyze();
+});
+
+async function runAnalyze() {
+  const raw = tickersInput.value.trim();
+  if (!raw) { showToast("Введите хотя бы один тикер", "warning"); return; }
+
+  const tickers = raw
+    .split(/[\s,;]+/)
+    .map((t) => t.trim().toUpperCase())
+    .filter(Boolean);
+
+  if (tickers.length === 0) { showToast("Тикеры не распознаны", "warning"); return; }
+
+  analyzeBtn.disabled = true;
+  document.getElementById("analyzeBtnText").textContent = "Анализирую…";
+  document.getElementById("analyzeBtnSpinner").classList.remove("d-none");
+
+  try {
+    const res = await fetch("/api/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tickers }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Ошибка анализа");
+
+    currentSessionId = data.session_id;
+    history.pushState({}, "", `/?session=${currentSessionId}`);
+    renderResults(data);
+  } catch (err) {
+    showToast(`Ошибка: ${err.message}`, "danger");
+  } finally {
+    analyzeBtn.disabled = false;
+    document.getElementById("analyzeBtnText").textContent = "Анализировать";
+    document.getElementById("analyzeBtnSpinner").classList.add("d-none");
+  }
+}
+
+/* ── Очистить ─────────────────────────────────────────────────────────────── */
+clearBtn.addEventListener("click", () => {
+  tickersInput.value = "";
+  resultsSection.classList.add("d-none");
+  uploadStatus.style.display = "none";
+  currentSessionId = null;
+  history.pushState({}, "", "/");
+});
+
+/* ── Скопировать ссылку ───────────────────────────────────────────────────── */
+copyLinkBtn.addEventListener("click", async () => {
+  if (!currentSessionId) return;
+  const url = `${location.origin}/?session=${currentSessionId}`;
+  try {
+    await navigator.clipboard.writeText(url);
+  } catch {
+    const inp = document.createElement("input");
+    inp.value = url;
+    document.body.appendChild(inp);
+    inp.select();
+    document.execCommand("copy");
+    document.body.removeChild(inp);
+  }
+  showToast("Ссылка скопирована в буфер обмена!");
+});
+
+/* ── Рендер результатов ───────────────────────────────────────────────────── */
+function renderResults(data) {
+  const { results, portfolio } = data;
+
+  // Карточка портфеля
+  document.getElementById("statTotal").textContent    = portfolio.total_count;
+  document.getElementById("statRisk").textContent     = portfolio.avg_risk;
+  document.getElementById("statHighDebt").textContent = portfolio.high_debt_count;
+  document.getElementById("statRiskiest").textContent = portfolio.riskiest;
+
+  const riskCard = document.getElementById("statRiskCard");
+  riskCard.className = `card stat-card ${portfolio.avg_risk_color} h-100 shadow-sm`;
+
+  // Бейдж источника данных
+  const badge     = document.getElementById("liveDataBadge");
+  const badgeErr  = document.getElementById("liveDataError");
+  const hasLive   = results.some(r => r.price && r.price !== "—");
+  if (data.live_updated_at && hasLive) {
+    document.getElementById("liveUpdatedAt").textContent =
+      `MOEX · ${data.live_updated_at}`;
+    badge.classList.remove("d-none");
+    badgeErr.classList.add("d-none");
+  } else if (data.live_updated_at && !hasLive) {
+    badge.classList.add("d-none");
+    badgeErr.classList.remove("d-none");
+  }
+
+  // Таблица
+  const tbody = document.getElementById("resultsTableBody");
+  tbody.innerHTML = "";
+
+  for (const r of results) {
+    const debtNum = r.debt_ebitda !== "—"
+      ? parseFloat(r.debt_ebitda.replace("x", ""))
+      : 0;
+    const highDebt = r.found && debtNum > 3;
+
+    // Цена: живая или предыдущее закрытие
+    let priceHtml = `<span class="text-muted">—</span>`;
+    if (r.price && r.price !== "—") {
+      const liveTag = r.price_is_live
+        ? `<i class="bi bi-circle-fill text-success ms-1" style="font-size:.5rem" title="Live цена"></i>`
+        : `<small class="text-muted d-block" style="font-size:.7rem">${esc(r.price_date)}</small>`;
+      priceHtml = `<span class="fw-semibold">${esc(r.price)}</span>${liveTag}`;
+    }
+
+    const tr = document.createElement("tr");
+    if (!r.found) tr.classList.add("unknown-ticker");
+
+    tr.innerHTML = `
+      <td class="ps-3">
+        <span class="badge ${r.found ? "bg-dark" : "bg-secondary"} ticker-badge">
+          ${esc(r.ticker)}
+        </span>
+      </td>
+      <td>
+        <span class="fw-semibold">${esc(r.company)}</span>
+        ${r.sector && r.sector !== "—"
+          ? `<br><small class="text-muted">${esc(r.sector)}</small>`
+          : ""}
+      </td>
+      <td class="text-end">${priceHtml}</td>
+      <td>
+        <span class="badge bg-${r.geo_risk_color} rounded-pill px-2">
+          ${esc(r.geo_risk_label)}
+        </span>
+      </td>
+      <td><small class="text-muted">${esc(r.key_risk)}</small></td>
+      <td class="text-end ${highDebt ? "text-danger fw-semibold" : ""}">
+        ${esc(r.debt_ebitda)}
+        ${highDebt ? '<i class="bi bi-exclamation-triangle-fill ms-1 text-danger" title="Высокий долг"></i>' : ""}
+      </td>
+      <td class="text-end">
+        ${esc(r.roe)}
+        ${r.found && r.roe_vs_sector !== "—"
+          ? `<br><small class="text-${r.roe_color}">${esc(r.roe_vs_sector)} к сектору</small>`
+          : ""}
+      </td>
+      <td class="text-center">
+        ${r.dividend_years === "0" || r.dividend_years === "—"
+          ? `<span class="text-muted">${r.dividend_years === "0" ? "не платит" : "—"}</span>`
+          : esc(r.dividend_years)}
+      </td>
+      <td class="text-end">${esc(r.free_float)}</td>
+      <td class="text-center fs-5">${r.news_sentiment}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  resultsSection.classList.remove("d-none");
+  resultsSection.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+/* ── Утилита: экранирование HTML ─────────────────────────────────────────── */
+function esc(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/* ══ DCA-калькулятор ══════════════════════════════════════════════════════════ */
+
+// Заполнить select годов
+(function fillYears() {
+  const sel = document.getElementById("dcaYear");
+  const curYear = new Date().getFullYear();
+  for (let y = curYear - 1; y >= 2010; y--) {
+    const opt = document.createElement("option");
+    opt.value = y; opt.textContent = y;
+    if (y === 2020) opt.selected = true;
+    sel.appendChild(opt);
+  }
+})();
+
+// Chevron collapse
+document.getElementById("dcaBody").addEventListener("hidden.bs.collapse", () => {
+  document.getElementById("dcaChevron").className = "bi bi-chevron-down";
+});
+document.getElementById("dcaBody").addEventListener("shown.bs.collapse", () => {
+  document.getElementById("dcaChevron").className = "bi bi-chevron-up";
+});
+
+/* ── Tag input ────────────────────────────────────────────────────────────── */
+const KNOWN_LIST = [
+  "SBER","GAZP","LKOH","GMKN","YDEX","MGNT","MTSS","ROSN","TATN","VTBR",
+  "NVTK","SNGS","PHOR","PLZL","CHMF","AFLT","X5","OZON","TCSG","MOEX"
+];
+let _dcaTickers = [];  // выбранные тикеры
+
+function dcaAddTicker(raw) {
+  const t = raw.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (!t) return;
+  if (_dcaTickers.includes(t)) return;
+  if (_dcaTickers.length >= 20) { showToast("Максимум 20 тикеров", "warning"); return; }
+  _dcaTickers.push(t);
+  dcaRenderTags();
+}
+
+function dcaRemoveTicker(t) {
+  _dcaTickers = _dcaTickers.filter(x => x !== t);
+  dcaRenderTags();
+}
+
+function dcaRenderTags() {
+  const wrap  = document.getElementById("dcaTagsWrap");
+  const input = document.getElementById("dcaTickerInput");
+  wrap.querySelectorAll(".ticker-tag").forEach(el => el.remove());
+  for (const t of _dcaTickers) {
+    const span = document.createElement("span");
+    span.className = "ticker-tag" + (KNOWN_LIST.includes(t) ? "" : " ticker-tag-unknown");
+    span.innerHTML = `${esc(t)}<span class="rm" onclick="dcaRemoveTicker('${esc(t)}')">×</span>`;
+    wrap.insertBefore(span, input);
+  }
+  input.placeholder = _dcaTickers.length ? "" : "Тикер + Enter…";
+}
+
+const dcaInput = document.getElementById("dcaTickerInput");
+
+dcaInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === ",") {
+    e.preventDefault();
+    const v = dcaInput.value.replace(",", "").trim();
+    if (v) { dcaAddTicker(v); dcaInput.value = ""; }
+  } else if (e.key === "Backspace" && !dcaInput.value && _dcaTickers.length) {
+    dcaRemoveTicker(_dcaTickers[_dcaTickers.length - 1]);
+  }
+});
+
+dcaInput.addEventListener("input", () => {
+  // datalist выбор или ввод запятой
+  if (dcaInput.value.includes(",")) {
+    const v = dcaInput.value.replace(",", "").trim();
+    if (v) dcaAddTicker(v);
+    dcaInput.value = "";
+    return;
+  }
+  const upper = dcaInput.value.trim().toUpperCase();
+  if (KNOWN_LIST.includes(upper)) {
+    dcaAddTicker(upper);
+    dcaInput.value = "";
+  }
+});
+
+dcaInput.addEventListener("change", () => {
+  const upper = dcaInput.value.trim().toUpperCase();
+  if (upper) { dcaAddTicker(upper); dcaInput.value = ""; }
+});
+
+/* ── Запуск расчёта ───────────────────────────────────────────────────────── */
+const DCA_PREVIEW = 10;
+
+document.getElementById("dcaBtn").addEventListener("click", runDca);
+
+async function runDca() {
+  // Добавить то, что ещё в поле ввода
+  const pending = dcaInput.value.trim();
+  if (pending) { dcaAddTicker(pending); dcaInput.value = ""; }
+
+  if (!_dcaTickers.length) { showToast("Выберите хотя бы один тикер", "warning"); return; }
+
+  const amount = parseFloat(document.getElementById("dcaAmount").value);
+  if (!amount || amount < 100) { showToast("Минимальная сумма — 100 ₽", "warning"); return; }
+
+  const startYear = parseInt(document.getElementById("dcaYear").value);
+  const frequency = document.getElementById("dcaFrequency").value;
+
+  const btn = document.getElementById("dcaBtn");
+  btn.disabled = true;
+  document.getElementById("dcaBtnText").textContent = "Загрузка…";
+  document.getElementById("dcaBtnSpinner").classList.remove("d-none");
+  document.getElementById("dcaResults").classList.add("d-none");
+
+  try {
+    const res = await fetch("/api/backtest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tickers: _dcaTickers, start_year: startYear, amount, frequency }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Ошибка расчёта");
+    renderDca(data, startYear, frequency);
+  } catch (err) {
+    showToast(`Ошибка: ${err.message}`, "danger");
+  } finally {
+    btn.disabled = false;
+    document.getElementById("dcaBtnText").textContent = "Рассчитать";
+    document.getElementById("dcaBtnSpinner").classList.add("d-none");
+  }
+}
+
+/* ── Рендер результатов ───────────────────────────────────────────────────── */
+function renderDca(data, startYear, frequency) {
+  const { results, combined } = data;
+  const freqLabel = { once: "разово", monthly: "ежемесячно", weekly: "еженедельно" };
+
+  // Заголовок
+  const names = results.filter(r => !r.error).map(r => r.ticker).join(", ") || "—";
+  document.getElementById("dcaTitle").textContent = names;
+  document.getElementById("dcaPeriodBadge").textContent =
+    `${startYear} → сегодня · ${freqLabel[frequency] || frequency} · ${combined.valid_count} из ${combined.ticker_count} тикеров`;
+
+  const fmt    = (v) => v != null ? v.toLocaleString("ru-RU", { maximumFractionDigits: 0 }) + " ₽" : "—";
+  const fmtPnl = (v, pct) => {
+    if (v == null) return { text: "нет данных", cls: "fs-5 fw-bold text-muted" };
+    const s = v >= 0 ? "+" : "";
+    const p = pct != null ? ` (${s}${pct}%)` : "";
+    return { text: `${s}${v.toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ₽${p}`,
+             cls: `fs-5 fw-bold ${v >= 0 ? "text-success" : "text-danger"}` };
+  };
+
+  // Сводные карточки
+  document.getElementById("dcaSumInvested").textContent = fmt(combined.total_invested);
+  document.getElementById("dcaSumShares").textContent =
+    `${combined.ticker_count} ${combined.ticker_count === 1 ? "тикер" : "тикеров"}`;
+
+  const valEl = document.getElementById("dcaSumValue");
+  valEl.textContent = combined.total_value > 0 ? fmt(combined.total_value) : "нет цен MOEX";
+  valEl.className   = combined.total_value > 0 ? "fs-5 fw-bold" : "fs-5 fw-bold text-muted";
+
+  const r3 = fmtPnl(combined.pnl, combined.pnl_pct);
+  const pnlEl = document.getElementById("dcaSumPnl");
+  pnlEl.textContent = r3.text; pnlEl.className = r3.cls;
+
+  const r4 = fmtPnl(combined.pnl_with_div, combined.pnl_pct_with_div);
+  const pdEl = document.getElementById("dcaSumPnlDiv");
+  pdEl.textContent = r4.text; pdEl.className = r4.cls;
+
+  const divTot = document.getElementById("dcaDivTotal");
+  divTot.textContent = combined.total_dividends > 0
+    ? `+${combined.total_dividends.toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ₽ дивидендов`
+    : "дивидендов не было";
+
+  // Таблица по тикерам
+  renderDcaTickerTable(results);
+
+  _lastDcaData = data;
+  document.getElementById("dcaResults").classList.remove("d-none");
+  document.getElementById("dcaResults").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+/* ── Per-ticker таблица с аккордеоном ────────────────────────────────────── */
+function renderDcaTickerTable(results) {
+  const tbody = document.getElementById("dcaTickerTableBody");
+  tbody.innerHTML = "";
+
+  for (const r of results) {
+    // ── Строка тикера ──────────────────────────────────────────────────────
+    const summaryRow = document.createElement("tr");
+    summaryRow.className = "dca-ticker-row";
+    const detailId = `dca-detail-${r.ticker}`;
+
+    if (r.error) {
+      summaryRow.innerHTML = `
+        <td class="ps-3">
+          <span class="badge bg-secondary ticker-badge">${esc(r.ticker)}</span>
+        </td>
+        <td colspan="6" class="text-muted small">${esc(r.error)}</td>
+        <td></td>`;
+    } else {
+      const s = r.summary;
+      const pnlCls    = s.pnl != null ? (s.pnl >= 0 ? "text-success" : "text-danger") : "text-muted";
+      const pnlDivCls = s.pnl_with_div != null ? (s.pnl_with_div >= 0 ? "text-success fw-semibold" : "text-danger fw-semibold") : "text-muted";
+      const fmtS = (v, dec = 0) => v != null ? v.toLocaleString("ru-RU", { maximumFractionDigits: dec }) : "—";
+      const sign = (v) => v != null && v >= 0 ? "+" : "";
+
+      summaryRow.innerHTML = `
+        <td class="ps-3">
+          <span class="badge bg-dark ticker-badge">${esc(r.ticker)}</span>
+        </td>
+        <td>
+          <span class="fw-semibold">${esc(r.company)}</span>
+          ${r.sector ? `<br><small class="text-muted">${esc(r.sector)}</small>` : ""}
+        </td>
+        <td class="text-end">${fmtS(s.total_invested)} ₽</td>
+        <td class="text-end">${s.current_value != null ? fmtS(s.current_value) + " ₽" : "<span class='text-muted'>—</span>"}</td>
+        <td class="text-end ${pnlCls}">
+          ${s.pnl != null ? sign(s.pnl) + fmtS(s.pnl) + " ₽" : "—"}
+          ${s.pnl_pct != null ? `<br><small>${sign(s.pnl)}${s.pnl_pct}%</small>` : ""}
+        </td>
+        <td class="text-end ${pnlDivCls}">
+          ${s.pnl_with_div != null ? sign(s.pnl_with_div) + fmtS(s.pnl_with_div) + " ₽" : "—"}
+          ${s.pnl_pct_with_div != null ? `<br><small>${sign(s.pnl_with_div)}${s.pnl_pct_with_div}%</small>` : ""}
+        </td>
+        <td class="text-end ${s.total_dividends > 0 ? "text-success" : "text-muted"}">
+          ${s.total_dividends > 0 ? "+" + fmtS(s.total_dividends) + " ₽" : "—"}
+          ${s.dividend_count > 0 ? `<br><small>${s.dividend_count} выплат</small>` : ""}
+        </td>
+        <td class="text-center">
+          <i class="bi bi-chevron-down text-muted" style="font-size:.75rem"
+             id="chevron-${esc(r.ticker)}"></i>
+        </td>`;
+      summaryRow.addEventListener("click", () => toggleDcaDetail(r, detailId));
+    }
+    tbody.appendChild(summaryRow);
+
+    // ── Детальная строка (скрыта) ──────────────────────────────────────────
+    const detailRow = document.createElement("tr");
+    detailRow.id        = detailId;
+    detailRow.className = "dca-detail-row d-none";
+    detailRow.innerHTML = `<td colspan="8"><div class="dca-detail-inner"></div></td>`;
+    tbody.appendChild(detailRow);
+  }
+}
+
+function toggleDcaDetail(r, detailId) {
+  const row      = document.getElementById(detailId);
+  const chevron  = document.getElementById(`chevron-${r.ticker}`);
+  const isOpen   = !row.classList.contains("d-none");
+
+  row.classList.toggle("d-none", isOpen);
+  if (chevron) chevron.className = isOpen
+    ? "bi bi-chevron-down text-muted"
+    : "bi bi-chevron-up text-primary";
+
+  if (!isOpen) renderDcaDetail(r, row.querySelector(".dca-detail-inner"));
+}
+
+function renderDcaDetail(r, container) {
+  const { purchases = [], dividend_events = [], summary: s } = r;
+  let _showAllPurchases = false;
+  let _showAllDivs      = false;
+
+  const tabs = `
+    <ul class="nav nav-tabs mb-0" style="font-size:.8rem">
+      <li class="nav-item">
+        <button class="nav-link active py-1 px-3" id="pt-${r.ticker}"
+                onclick="dcaDetailTab('${r.ticker}','purchases')">
+          <i class="bi bi-cart me-1"></i>Покупки (${purchases.length})
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link py-1 px-3" id="dt-${r.ticker}"
+                onclick="dcaDetailTab('${r.ticker}','dividends')">
+          <i class="bi bi-cash-coin me-1"></i>Дивиденды (${dividend_events.length})
+        </button>
+      </li>
+    </ul>`;
+
+  container.innerHTML = tabs +
+    `<div id="pp-${r.ticker}" class="table-responsive border border-top-0 rounded-bottom" style="max-height:260px;overflow-y:auto">
+      ${buildPurchaseTable(purchases, DCA_PREVIEW, r.ticker)}
+    </div>
+    <div id="dp-${r.ticker}" class="d-none table-responsive border border-top-0 rounded-bottom" style="max-height:260px;overflow-y:auto">
+      ${buildDivTable(dividend_events, DCA_PREVIEW, r.ticker)}
+    </div>`;
+}
+
+function dcaDetailTab(ticker, tab) {
+  const isPurch = tab === "purchases";
+  document.getElementById(`pp-${ticker}`).classList.toggle("d-none", !isPurch);
+  document.getElementById(`dp-${ticker}`).classList.toggle("d-none", isPurch);
+  document.getElementById(`pt-${ticker}`).classList.toggle("active", isPurch);
+  document.getElementById(`dt-${ticker}`).classList.toggle("active", !isPurch);
+}
+
+function buildPurchaseTable(purchases, preview, ticker) {
+  const rows = purchases.slice(0, preview);
+  let html = `<table class="table table-sm table-hover mb-0" style="font-size:.8rem">
+    <thead class="table-dark sticky-top"><tr>
+      <th>Дата</th><th class="text-end">Цена (₽)</th>
+      <th class="text-end">Куплено шт.</th><th class="text-end">Потрачено (₽)</th>
+      <th class="text-end">Итого шт.</th><th class="text-end">Итого вложено (₽)</th>
+    </tr></thead><tbody>`;
+  for (const p of rows) {
+    html += `<tr>
+      <td>${esc(p.date)}</td>
+      <td class="text-end">${fmtN(p.price)}</td>
+      <td class="text-end">${fmtN(p.shares_bought, 0)}</td>
+      <td class="text-end">${fmtN(p.actual_spent, 0)}</td>
+      <td class="text-end">${fmtN(p.cumulative_shares, 0)}</td>
+      <td class="text-end">${fmtN(p.cumulative_invested, 0)}</td>
+    </tr>`;
+  }
+  html += "</tbody></table>";
+  if (purchases.length > preview) {
+    html += `<div class="text-center py-2">
+      <button class="btn btn-link btn-sm text-muted p-0 d-inline-flex align-items-center gap-1"
+              style="font-size:.78rem"
+              onclick="expandDcaTable(this,'${ticker}','purchases')">
+        <i class="bi bi-chevron-down"></i> Показать ещё ${purchases.length - preview}
+      </button></div>`;
+  }
+  return html;
+}
+
+function buildDivTable(divs, preview, ticker) {
+  if (!divs.length) return `<div class="text-center text-muted py-3" style="font-size:.83rem">Дивидендов не было в выбранный период</div>`;
+  const rows = divs.slice(0, preview);
+  let html = `<table class="table table-sm table-hover mb-0" style="font-size:.8rem">
+    <thead class="table-dark sticky-top"><tr>
+      <th>Дата реестра</th><th class="text-end">На акцию (₽)</th>
+      <th class="text-end">Акций</th><th class="text-end">Получено (₽)</th>
+      <th class="text-end">Итого (₽)</th>
+    </tr></thead><tbody>`;
+  for (const d of rows) {
+    html += `<tr>
+      <td>${esc(d.date)}</td>
+      <td class="text-end fw-semibold">${fmtN(d.value_per_share)}</td>
+      <td class="text-end">${fmtN(d.shares_held, 0)}</td>
+      <td class="text-end text-success">+${fmtN(d.received)}</td>
+      <td class="text-end">${fmtN(d.cumulative_div)}</td>
+    </tr>`;
+  }
+  html += "</tbody></table>";
+  if (divs.length > preview) {
+    html += `<div class="text-center py-2">
+      <button class="btn btn-link btn-sm text-muted p-0 d-inline-flex align-items-center gap-1"
+              style="font-size:.78rem"
+              onclick="expandDcaTable(this,'${ticker}','dividends')">
+        <i class="bi bi-chevron-down"></i> Показать ещё ${divs.length - preview}
+      </button></div>`;
+  }
+  return html;
+}
+
+function expandDcaTable(btn, ticker, type) {
+  // Перестраиваем панель полностью без лимита
+  const r = _lastDcaData.results.find(x => x.ticker === ticker);
+  if (!r) return;
+  const panelId = type === "purchases" ? `pp-${ticker}` : `dp-${ticker}`;
+  const panel   = document.getElementById(panelId);
+  panel.innerHTML = type === "purchases"
+    ? buildPurchaseTable(r.purchases, Infinity, ticker)
+    : buildDivTable(r.dividend_events, Infinity, ticker);
+}
+
+let _lastDcaData = null;
+
+const fmtN = (n, dec = 2) => n != null
+  ? n.toLocaleString("ru-RU", { maximumFractionDigits: dec })
+  : "—";
+
+/* ══ Лучшие акции ══════════════════════════════════════════════════════════════ */
+
+let _topChart = null;
+let _spLoaded = false;
+
+// Заполняем select годов для симулятора
+(function fillTopYears() {
+  const sel = document.getElementById("topYear");
+  const cur = new Date().getFullYear();
+  for (let y = cur - 1; y >= 2014; y--) {
+    const opt = document.createElement("option");
+    opt.value = y; opt.textContent = y;
+    if (y === 2019) opt.selected = true;
+    sel.appendChild(opt);
+  }
+})();
+
+// ── Цвета секторов ────────────────────────────────────────────────────────────
+const SECTOR_COLORS = {
+  "Финансы":                  { bg: "#cfe2ff", text: "#052c65" },
+  "Нефтегаз":                 { bg: "#fff3cd", text: "#664d03" },
+  "Золото":                   { bg: "#ffd700", text: "#3d2a00" },
+  "Цветная металлургия":      { bg: "#d1ecf1", text: "#0c5460" },
+  "Удобрения":                { bg: "#d4edda", text: "#155724" },
+  "Биржевая инфраструктура":  { bg: "#e2d9f3", text: "#3d1a78" },
+  "Ритейл":                   { bg: "#ffe5d9", text: "#6e2c00" },
+  "Телеком":                  { bg: "#d3d3d3", text: "#212529" },
+  "Технологии":               { bg: "#cce5ff", text: "#004085" },
+};
+function sectorBadge(sector) {
+  const c = SECTOR_COLORS[sector] || { bg: "#e9ecef", text: "#495057" };
+  return `<span class="top-sector-badge" style="background:${c.bg};color:${c.text}">${esc(sector)}</span>`;
+}
+
+// ── Вызывается при клике на вкладку ──────────────────────────────────────────
+function onTopTabClick() {
+  if (!_spLoaded) loadSmartPortfolio();
+}
+
+document.getElementById("spRefreshBtn").addEventListener("click", () => {
+  _spLoaded = false;
+  loadSmartPortfolio();
+});
+
+// ── Загрузка динамического портфеля ──────────────────────────────────────────
+async function loadSmartPortfolio() {
+  const years   = document.getElementById("spYears").value;
+  const minCagr = document.getElementById("spMinCagr").value;
+
+  document.getElementById("spLoading").classList.remove("d-none");
+  document.getElementById("spTableWrap").classList.add("d-none");
+  document.getElementById("spRejectedWrap").classList.add("d-none");
+  document.getElementById("spRefreshSpinner").classList.remove("d-none");
+  document.getElementById("spRefreshText").textContent = "Анализирую…";
+  document.getElementById("spRefreshBtn").disabled = true;
+
+  try {
+    const res  = await fetch(`/api/smart-portfolio?years=${years}&min_cagr=${minCagr}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || "Ошибка");
+    renderSmartPortfolio(data);
+    _spLoaded = true;
+  } catch (err) {
+    showToast(`Ошибка загрузки: ${err.message}`, "danger");
+    document.getElementById("spLoading").classList.add("d-none");
+  } finally {
+    document.getElementById("spRefreshSpinner").classList.add("d-none");
+    document.getElementById("spRefreshText").textContent = "Обновить подборку";
+    document.getElementById("spRefreshBtn").disabled = false;
+  }
+}
+
+// ── Рендер результата подборки ────────────────────────────────────────────────
+function renderSmartPortfolio(data) {
+  const { portfolio, rejected, no_data, params } = data;
+
+  const fromMoex = params.total_from_moex ? `с биржи: ${params.total_from_moex} · ` : "";
+  document.getElementById("spMeta").textContent =
+    `${fromMoex}проанализировано: ${params.total_analyzed} · отобрано: ${portfolio.length} · отсеяно: ${rejected.length}`;
+  document.getElementById("spTableTitle").textContent =
+    `Лучший сбалансированный портфель — ${portfolio.length} акций`;
+
+  const fmtPct = (v, bold) => {
+    if (v == null) return `<span class="text-muted">—</span>`;
+    const cls = v >= 0 ? "text-success" : "text-danger";
+    const s   = v >= 0 ? "+" : "";
+    return bold
+      ? `<strong class="${cls}">${s}${v}%</strong>`
+      : `<span class="${cls}">${s}${v}%</span>`;
+  };
+
+  // Таблица отобранных
+  const tbody = document.getElementById("topTableBody");
+  tbody.innerHTML = "";
+  for (const p of portfolio) {
+    const m    = p.metrics;
+    const wPct = Math.round(p.weight * 100);
+    tbody.innerHTML += `<tr>
+      <td class="ps-3 text-center fw-semibold">${wPct}%</td>
+      <td><span class="badge bg-dark ticker-badge">${esc(p.ticker)}</span></td>
+      <td>${sectorBadge(p.sector)}</td>
+      <td class="fw-semibold">${esc(p.name)}</td>
+      <td class="text-end">${fmtPct(m.price_cagr_pct, false)}</td>
+      <td class="text-end">${fmtPct(m.div_yield_pct, false)}</td>
+      <td class="text-end">${fmtPct(m.total_cagr_pct, true)}</td>
+      <td class="text-end text-muted">${m.actual_years} л.</td>
+    </tr>`;
+  }
+
+  // Таблица отсеянных
+  const rejBody = document.getElementById("spRejectedBody");
+  rejBody.innerHTML = "";
+  const allRejected = [...(rejected || []), ...(no_data || [])];
+  for (const r of allRejected) {
+    const m   = r.metrics;
+    const tc  = m ? (m.total_cagr_pct >= 0 ? "text-warning" : "text-danger") : "text-muted";
+    const tcV = m ? `<span class="${tc}">${m.total_cagr_pct >= 0 ? "+" : ""}${m.total_cagr_pct}%</span>` : "—";
+    rejBody.innerHTML += `<tr>
+      <td class="ps-3"><span class="badge bg-secondary ticker-badge">${esc(r.ticker)}</span></td>
+      <td>${esc(r.name || "")}</td>
+      <td>${sectorBadge(r.sector || "—")}</td>
+      <td class="text-end">${tcV}</td>
+      <td><small>${esc(r.reason || "")}</small></td>
+    </tr>`;
+  }
+  document.getElementById("spRejectedLabel").textContent =
+    `Не вошли в портфель (${allRejected.length})`;
+
+  // Показываем блоки
+  document.getElementById("spLoading").classList.add("d-none");
+  document.getElementById("spTableWrap").classList.remove("d-none");
+  if (allRejected.length) document.getElementById("spRejectedWrap").classList.remove("d-none");
+  document.getElementById("spLiveBadge").style.display = "inline-flex";
+}
+
+document.getElementById("topCalcBtn").addEventListener("click", runTopChart);
+
+async function runTopChart() {
+  const startYear   = parseInt(document.getElementById("topYear").value);
+  const totalAmount = parseFloat(document.getElementById("topAmount").value);
+  const frequency   = document.getElementById("topFrequency").value;
+
+  if (!totalAmount || totalAmount < 1000) {
+    showToast("Минимальный бюджет — 1 000 ₽", "warning"); return;
+  }
+
+  const btn = document.getElementById("topCalcBtn");
+  btn.disabled = true;
+  document.getElementById("topCalcText").textContent    = "Загрузка…";
+  document.getElementById("topCalcSpinner").classList.remove("d-none");
+  document.getElementById("topChartSection").classList.add("d-none");
+
+  try {
+    const res = await fetch("/api/portfolio-chart", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ start_year: startYear, total_amount: totalAmount, frequency }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.detail || data.error || "Ошибка расчёта");
+    renderTopChart(data);
+  } catch (err) {
+    showToast(`Ошибка: ${err.message}`, "danger");
+  } finally {
+    btn.disabled = false;
+    document.getElementById("topCalcText").textContent = "Рассчитать";
+    document.getElementById("topCalcSpinner").classList.add("d-none");
+  }
+}
+
+// YYYY-MM → "Мар'20"
+const _MONTHS_RU = ["Янв","Фев","Мар","Апр","Май","Июн","Июл","Авг","Сен","Окт","Ноя","Дек"];
+function fmtChartMonth(ym) {
+  const [y, m] = ym.split("-");
+  return `${_MONTHS_RU[parseInt(m) - 1]}'${y.slice(2)}`;
+}
+
+function renderTopChart(data) {
+  const { labels, invested, value_no_div, value_with_div, summary: s } = data;
+  const fmt    = v => v != null ? v.toLocaleString("ru-RU", { maximumFractionDigits: 0 }) + " ₽" : "—";
+  const fmtPnl = (pnl, pct) => {
+    if (pnl == null) return "";
+    const sign = pnl >= 0 ? "+" : "";
+    const cls  = pnl >= 0 ? "text-success" : "text-danger";
+    return `<small class="${cls}">${sign}${pnl.toLocaleString("ru-RU",{maximumFractionDigits:0})} ₽${pct != null ? ` (${sign}${pct}%)` : ""}</small>`;
+  };
+
+  // Карточки
+  document.getElementById("topInvested").textContent   = fmt(s.total_invested);
+  document.getElementById("topValue").textContent      = fmt(s.final_value);
+  document.getElementById("topValueDiv").textContent   = fmt(s.final_value_with_div);
+  document.getElementById("topDivTotal").textContent   = fmt(s.total_dividends);
+  document.getElementById("topPnl").innerHTML    = fmtPnl(s.pnl, s.pnl_pct);
+  document.getElementById("topPnlDiv").innerHTML = fmtPnl(s.pnl_with_div, s.pnl_pct_with_div);
+
+  // График
+  if (_topChart) _topChart.destroy();
+  const ctx = document.getElementById("topChart").getContext("2d");
+  _topChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: labels.map(fmtChartMonth),
+      datasets: [
+        {
+          label: "Вложено",
+          data: invested,
+          borderColor: "#adb5bd",
+          borderDash: [6, 4],
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+          tension: 0,
+        },
+        {
+          label: "Без дивидендов",
+          data: value_no_div,
+          borderColor: "#0d6efd",
+          borderWidth: 2.5,
+          pointRadius: 0,
+          fill: false,
+          tension: 0.2,
+        },
+        {
+          label: "С дивидендами",
+          data: value_with_div,
+          borderColor: "#198754",
+          backgroundColor: "rgba(25,135,84,.10)",
+          borderWidth: 2.5,
+          pointRadius: 0,
+          fill: true,
+          tension: 0.2,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      animation: false,
+      interaction: { mode: "index", intersect: false },
+      plugins: {
+        legend: { position: "top", labels: { usePointStyle: true, padding: 20, font: { size: 12 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => `${ctx.dataset.label}: ${ctx.raw.toLocaleString("ru-RU", { maximumFractionDigits: 0 })} ₽`,
+          },
+        },
+      },
+      scales: {
+        x: {
+          ticks: { maxTicksLimit: 14, font: { size: 11 } },
+          grid: { display: false },
+        },
+        y: {
+          ticks: {
+            font: { size: 11 },
+            callback: v => v >= 1_000_000
+              ? `${(v / 1_000_000).toFixed(1)} млн`
+              : `${(v / 1_000).toFixed(0)} тыс`,
+          },
+          grid: { color: "rgba(0,0,0,.05)" },
+        },
+      },
+    },
+  });
+
+  document.getElementById("topChartSection").classList.remove("d-none");
+  document.getElementById("topChartSection").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+</script>
+</body>
+</html>
